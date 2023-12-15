@@ -17,6 +17,7 @@ class Channel:
         result[self.target] -= self.target_consumption_rate
         return result
 
+@dataclass
 class Sdf:
     actors: tuple[str, ...]
     channels: tuple[Channel, ...]
