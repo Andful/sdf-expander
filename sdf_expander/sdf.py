@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Iterator
+from typing import Iterator, Hashable
 from sympy import Matrix
 from math import lcm, gcd
 
@@ -19,14 +19,14 @@ class Channel:
 
 @dataclass
 class Sdf:
-    actors: tuple[str, ...]
+    actors: tuple[Hashable, ...]
     channels: tuple[Channel, ...]
 
-    def __init__(self) -> None:
-        self.actors = ()
-        self.channels = ()
+    def __init__(self, actors = (), channels = ()) -> None:
+        self.actors = actors
+        self.channels = channels
 
-    def add_actor(self, actor: str):
+    def add_actor(self, actor: Hashable):
         self.actors = self.actors + (actor,)
 
     def add_channel(self, source, source_production_rate, target, target_consumption_rate, initial_tokens=0):
@@ -35,9 +35,12 @@ class Sdf:
         if target not in self.actors:
             raise ValueError(f'"{target}" is not an actor')
         self.channels = self.channels + (Channel(self.actors.index(source), self.actors.index(target), source_production_rate, target_consumption_rate, initial_tokens),)
-
+	
+    def topology_matrix(self):
+        return [c.topological_matrix_column(len(self.actors)) for c in self.channels]
+        
     def repetitions_vector(self) -> tuple[int, ...]:
-        topology_matrix = Matrix([c.topological_matrix_column(len(self.actors)) for c in self.channels])
+        topology_matrix = Matrix(self.topology_matrix())
         assert topology_matrix.rank() == len(self.actors) - 1
         [result] = topology_matrix.nullspace()
 
@@ -68,12 +71,12 @@ class Hsdf:
     sdf: Sdf
     repetitions_vector: tuple[int]
 
-    def actors(self) -> Iterator[tuple[str, int]]:
+    def actors(self) -> Iterator[tuple[Hashable, int]]:
         for i, a in enumerate(self.sdf.actors):
             for j in range(self.repetitions_vector[i]):
                 yield (a, j)
 
-    def channels(self) -> Iterator[tuple[tuple[str, int], tuple[str, int], int]]:
+    def channels(self) -> Iterator[tuple[tuple[Hashable, int], tuple[Hashable, int], int]]:
         for c in self.sdf.channels:
             source = self.sdf.actors[c.source]
             target = self.sdf.actors[c.target]
